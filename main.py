@@ -1,4 +1,6 @@
 # pylint: disable=missing-module-docstring, missing-function-docstring
+import os
+import time
 import logging
 from telegram import Update
 from telegram.ext import (
@@ -16,28 +18,26 @@ logging.basicConfig(
 
 
 async def handle_voice(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-    print("Got message", update.message.date)
-    voice_path = await get_voice_path(update)
+    print("Got message")
+    message = update.message
+    file = await message.voice.get_file()
+    start_time = time.time()
+    await message.reply_text("Got it! Transcribing message. Hang in there cowboy")
 
-    await update.message.reply_text("Got it! Transcribing message. Hang in there cowboy")
+    for segment in transcribe(file.file_path):
+        await message.reply_text(segment.text)
 
-    segments = transcribe(voice_path)
-
-    for segment in segments:
-        await update.message.reply_text(segment.text)
-
-
-async def get_voice_path(update: Update):
-    message_voice = update.message.voice
-    file = await message_voice.get_file()
-    return file.file_path
+    end_time = time.time()
+    await message.reply_text("Took: " + str(round(end_time - start_time)) + " seconds")
 
 
 def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+    token = os.environ["TOKEN"]
+    application = ApplicationBuilder().token(token).build()
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    application.run_polling(allowed_updates=Update.MESSAGE)
 
+    print("Bot started")
+    application.run_polling(allowed_updates=Update.MESSAGE)
 
 
 if __name__ == "__main__":
